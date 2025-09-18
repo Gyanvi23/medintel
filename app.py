@@ -3,8 +3,8 @@ import streamlit as st
 import openai
 
 # ---------------- CONFIG ------------------
-# Initialize OpenAI client
-client = openai.OpenAI(api_key="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")  # Replace with your API key
+# Use API key from Streamlit secrets
+client = openai.OpenAI(api_key=st.secrets["openai"]["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"])
 
 st.set_page_config(page_title="MedIntel 💊", page_icon="💊", layout="wide")
 st.title("💊 MedIntel - Your Intelligent Health Assistant")
@@ -12,6 +12,7 @@ st.title("💊 MedIntel - Your Intelligent Health Assistant")
 # ---------------- SIDEBAR ------------------
 st.sidebar.title("MedIntel - AI Health Assistant")
 st.sidebar.write("⚠️ Disclaimer: I am not a doctor. Advice is for informational purposes only.")
+
 if st.sidebar.button("Clear Chat"):
     st.session_state.messages = []
 
@@ -75,4 +76,3 @@ for msg in st.session_state.messages:
             </div>
             """, unsafe_allow_html=True
         )
-
