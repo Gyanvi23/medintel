@@ -4,7 +4,7 @@ import openai
 
 # ---------------- CONFIG ------------------
 # Initialize OpenAI client
-client = openai.OpenAI(api_key="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")  # Replace with your API key
+client = openai.OpenAI(api_key="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")  # Replace with your API key
 
 st.set_page_config(page_title="MedIntel 💊", page_icon="💊", layout="wide")
 st.title("💊 MedIntel - Your Intelligent Health Assistant")
@@ -75,3 +75,4 @@ for msg in st.session_state.messages:
             </div>
             """, unsafe_allow_html=True
         )
+
