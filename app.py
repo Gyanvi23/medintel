@@ -3,7 +3,7 @@ import os
 from openai import OpenAI
 
 # Page title
-st.title("🩺 Health Assistant Chatbot")
+st.title("🩺 MedIntel")
 
 # Disclaimer
 st.markdown("⚠️ This chatbot is for **general health information only**. Not a substitute for a doctor.")
@@ -38,4 +38,5 @@ else:
                 st.session_state.messages.append({"role": "assistant", "content": reply})
             except Exception as e:
                 st.error(f"Error: {e}")
+
 
