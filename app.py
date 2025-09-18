@@ -1,42 +1,43 @@
 import streamlit as st
-import os
-from openai import OpenAI
+import openai
 
-# Page title
-st.title("🩺 MedIntel")
+# -------------- CONFIGURATION -----------------
+openai.api_key = "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"  # Replace with your API key
 
-# Disclaimer
-st.markdown("⚠️ This chatbot is for **general health information only**. Not a substitute for a doctor.")
+# -------------- APP LAYOUT -----------------
+st.set_page_config(page_title="MedIntel - AI for a Healthier Tomorrow", page_icon="💊")
+st.title("💊 MedIntel - AI for a Healthier Tomorrow")
+st.write("⚠️ **Disclaimer:** I am not a doctor. This chatbot provides general health information only.")
 
-# Load API key
-api_key = os.getenv("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")
-if not api_key:
-    st.error("🚨 OPENAI_API_KEY is missing! Please add it in Streamlit Secrets.")
-else:
-    client = OpenAI(api_key=api_key)
+# -------------- SESSION STATE -----------------
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-    if "messages" not in st.session_state:
-        st.session_state["messages"] = [
-            {"role": "system", "content": "You are a helpful health assistant. Always include a doctor disclaimer."}
-        ]
+# -------------- USER INPUT -----------------
+def get_user_input():
+    return st.text_input("Ask your health question here:")
 
-    # Chat input
-    if prompt := st.chat_input("Ask me a health question..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
+user_input = get_user_input()
 
-        with st.chat_message("user"):
-            st.markdown(prompt)
+# -------------- CHAT FUNCTION -----------------
+def generate_response(prompt):
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",  # You can use gpt-4 if available
+        messages=[{"role": "system", "content": "You are a helpful health assistant."},
+                  {"role": "user", "content": prompt}],
+        max_tokens=200
+    )
+    return response['choices'][0]['message']['content']
 
-        with st.chat_message("assistant"):
-            try:
-                response = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=st.session_state.messages
-                )
-                reply = response.choices[0].message.content
-                st.markdown(reply)
-                st.session_state.messages.append({"role": "assistant", "content": reply})
-            except Exception as e:
-                st.error(f"Error: {e}")
+# -------------- DISPLAY CHAT -----------------
+if user_input:
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    bot_response = generate_response(user_input)
+    st.session_state.messages.append({"role": "bot", "content": bot_response})
 
-
+# -------------- SHOW CHAT HISTORY -----------------
+for msg in st.session_state.messages:
+    if msg["role"] == "user":
+        st.markdown(f"**You:** {msg['content']}")
+    else:
+        st.markdown(f"**MedIntel:** {msg['content']}")
