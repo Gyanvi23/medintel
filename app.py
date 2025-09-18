@@ -8,7 +8,7 @@ import uuid
 st.set_page_config(page_title="MedIntel 💊", page_icon="💊", layout="centered")
 
 # OpenAI API key from Streamlit secrets
-client = openai.OpenAI(api_key=st.secrets["openai"]["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"])
+client = openai.OpenAI(api_key=st.secrets["openai"]["api_key"])
 
 # ---------------- USER SESSION ------------------
 if "user_id" not in st.session_state:
@@ -175,4 +175,5 @@ if submit_button and user_input.strip() != "":
 
     # Rerun to display updated chat
     st.experimental_rerun()
+
 
