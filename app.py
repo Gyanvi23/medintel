@@ -1,12 +1,22 @@
 import streamlit as st
 import openai
 import sqlite3
+import time
+import uuid
 
 # ---------------- CONFIG ------------------
-# Initialize OpenAI client
-client = openai.OpenAI(api_key="YOUR_OPENAI_API_KEY")  # Replace with your API key
+st.set_page_config(page_title="MedIntel 💊", page_icon="💊", layout="centered")
 
-st.set_page_config(page_title="MedIntel 💊", page_icon="💊", layout="wide")
+# OpenAI API key from Streamlit secrets
+client = openai.OpenAI(api_key=st.secrets["openai"]["api_key"])
+
+# ---------------- USER SESSION ------------------
+if "user_id" not in st.session_state:
+    st.session_state.user_id = str(uuid.uuid4())  # unique id for each user session
+if "current_topic" not in st.session_state:
+    st.session_state.current_topic = None
+if "step" not in st.session_state:
+    st.session_state.step = 0
 
 # ---------------- DATABASE ------------------
 conn = sqlite3.connect("medintel_chat.db", check_same_thread=False)
@@ -14,78 +24,49 @@ c = conn.cursor()
 c.execute("""
 CREATE TABLE IF NOT EXISTS chat_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT,
     role TEXT,
-    message TEXT
+    message TEXT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 )
 """)
 conn.commit()
 
-# ---------------- SESSION STATE ------------------
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# ---------------- SIDEBAR ------------------
+st.sidebar.title("MedIntel - AI Health Assistant")
+st.sidebar.write("⚠️ Disclaimer: I am not a real doctor. Advice is for informational purposes only.")
+if st.sidebar.button("Clear Chat"):
+    st.session_state.step = 0
+    st.session_state.current_topic = None
+    c.execute("DELETE FROM chat_history WHERE user_id = ?", (st.session_state.user_id,))
+    conn.commit()
 
-# Load messages from database
-c.execute("SELECT role, message FROM chat_history ORDER BY id ASC")
+# ---------------- TOPIC BUTTONS ------------------
+topic = st.sidebar.radio(
+    "Choose a topic to start:",
+    ("Symptoms", "Diet & Nutrition", "Fitness & Exercise")
+)
+st.session_state.current_topic = topic
+
+# ---------------- LOAD PREVIOUS MESSAGES ------------------
+st.session_state.messages = []
+c.execute("SELECT role, message FROM chat_history WHERE user_id=? ORDER BY id ASC", (st.session_state.user_id,))
 rows = c.fetchall()
 for row in rows:
     st.session_state.messages.append({"role": row[0], "content": row[1]})
 
-# ---------------- SIDEBAR ------------------
-st.sidebar.title("MedIntel - AI Health Assistant")
-st.sidebar.write("⚠️ Disclaimer: I am not a doctor. Advice is for informational purposes only.")
-if st.sidebar.button("Clear Chat"):
-    st.session_state.messages = []
-    c.execute("DELETE FROM chat_history")
-    conn.commit()
-
-# ---------------- USER INPUT FORM ------------------
-with st.form(key="chat_form", clear_on_submit=True):
-    user_input = st.text_input("Ask any health-related question:", "")
-    submit_button = st.form_submit_button("Send")
-
-# ---------------- SYSTEM MESSAGE ------------------
-system_message = """
-You are MedIntel, a highly intelligent, polite, and professional AI healthcare assistant.
-Answer all questions accurately, clearly, and provide useful guidance.
-Always give disclaimers where necessary: You are not a doctor and your advice is for informational purposes only.
-"""
-
-# ---------------- GENERATE RESPONSE ------------------
-if submit_button and user_input.strip() != "":
-    # Save user message to session and DB
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    c.execute("INSERT INTO chat_history (role, message) VALUES (?, ?)", ("user", user_input))
-    conn.commit()
-
-    try:
-        # OpenAI API call
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "system", "content": system_message}] + st.session_state.messages,
-            max_tokens=400,
-            temperature=0.7
-        )
-        bot_response = response.choices[0].message.content
-
-    except Exception as e:
-        bot_response = f"Error: {str(e)}"
-
-    # Save bot response to session and DB
-    st.session_state.messages.append({"role": "bot", "content": bot_response})
-    c.execute("INSERT INTO chat_history (role, message) VALUES (?, ?)", ("bot", bot_response))
-    conn.commit()
-
-# ---------------- CSS & HTML MOBILE-LIKE DESIGN ------------------
-chat_style = """
+# ---------------- CSS FOR MOBILE-LIKE CHAT ------------------
+st.markdown("""
 <style>
 .chat-container {
+    max-width: 450px;
+    margin: auto;
     max-height: 550px;
     overflow-y: auto;
     padding: 15px;
     border: 1px solid #ddd;
     border-radius: 20px;
     background-color: #f9f9f9;
-    margin-bottom: 10px;
 }
 .user-bubble {
     background-color: #DCF8C6;
@@ -113,14 +94,10 @@ chat_style = """
     vertical-align: top;
     margin: 0 10px;
 }
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
 </style>
-"""
-st.markdown(chat_style, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# ---------------- DISPLAY CHAT ------------------
+# ---------------- CHAT CONTAINER ------------------
 st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
 for msg in st.session_state.messages:
     if msg["role"] == "user":
@@ -146,3 +123,55 @@ for msg in st.session_state.messages:
             """, unsafe_allow_html=True
         )
 st.markdown("</div>", unsafe_allow_html=True)
+
+# ---------------- USER INPUT ------------------
+with st.form(key="chat_form", clear_on_submit=True):
+    user_input = st.text_input("Type your message here...", "")
+    submit_button = st.form_submit_button("Send")
+
+# ---------------- STEP-BY-STEP AI RESPONSE ------------------
+system_message = f"""
+You are MedIntel, a professional AI virtual doctor.
+- Be empathetic, professional, and clear.
+- If topic is 'Symptoms', ask for step-by-step symptom details.
+- Once symptoms are provided, suggest possible diseases and general medicines.
+- If topic is 'Diet & Nutrition' or 'Fitness & Exercise', provide informative advice.
+- Always include disclaimer: '⚠️ I am not a real doctor; consult a healthcare professional.'
+"""
+
+if submit_button and user_input.strip() != "":
+    # Show typing animation
+    placeholder = st.empty()
+    with placeholder.container():
+        st.markdown("**MedIntel is typing...**")
+        time.sleep(1)  # simulate typing
+
+    # Save user message
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    c.execute("INSERT INTO chat_history (user_id, role, message) VALUES (?, ?, ?)",
+              (st.session_state.user_id, "user", user_input))
+    conn.commit()
+
+    # Call OpenAI API
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "system", "content": system_message}] + st.session_state.messages,
+            max_tokens=450,
+            temperature=0.7
+        )
+        bot_response = response.choices[0].message.content
+    except Exception as e:
+        bot_response = f"Error: {str(e)}"
+
+    # Save bot response
+    st.session_state.messages.append({"role": "bot", "content": bot_response})
+    c.execute("INSERT INTO chat_history (user_id, role, message) VALUES (?, ?, ?)",
+              (st.session_state.user_id, "bot", bot_response))
+    conn.commit()
+
+    # Clear typing animation
+    placeholder.empty()
+
+    # Rerun to display updated chat
+    st.experimental_rerun()
