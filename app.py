@@ -1,9 +1,8 @@
-
 import streamlit as st
 import openai
 
 # ---------------- CONFIG ------------------
-client = openai.OpenAI(api_key=st.secrets["openai"]["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"])
+client = openai.OpenAI(api_key=st.secrets["openai"]["api_key"])
 
 st.set_page_config(page_title="MedIntel 💊", page_icon="💊", layout="wide")
 st.markdown("<h1 style='text-align:center;'>💊 MedIntel - Your Virtual Doctor</h1>", unsafe_allow_html=True)
@@ -117,4 +116,3 @@ for msg in st.session_state.messages:
             """, unsafe_allow_html=True
         )
 st.markdown("</div>", unsafe_allow_html=True)
-
