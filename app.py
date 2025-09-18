@@ -1,16 +1,17 @@
+
 import streamlit as st
 import openai
 
-# -------------- CONFIGURATION -----------------
-openai.api_key = "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"  # Replace with your API key
-
-
+# ---------------- CONFIG ------------------
+# Initialize OpenAI client
+client = openai.OpenAI(api_key="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")  # Replace with your API key
 
 st.set_page_config(page_title="MedIntel 💊", page_icon="💊", layout="wide")
+st.title("💊 MedIntel - Your Intelligent Health Assistant")
 
 # ---------------- SIDEBAR ------------------
 st.sidebar.title("MedIntel - AI Health Assistant")
-st.sidebar.write("⚠️ **Disclaimer:** I am not a doctor. Advice is for informational purposes only.")
+st.sidebar.write("⚠️ Disclaimer: I am not a doctor. Advice is for informational purposes only.")
 if st.sidebar.button("Clear Chat"):
     st.session_state.messages = []
 
@@ -25,8 +26,10 @@ with st.form(key="chat_form", clear_on_submit=True):
 
 # ---------------- GENERATE RESPONSE ------------------
 if submit_button and user_input.strip() != "":
+    # Save user message
     st.session_state.messages.append({"role": "user", "content": user_input})
 
+    # System message defines AI behavior
     system_message = """
     You are MedIntel, a highly intelligent, polite, and professional AI healthcare assistant.
     Answer all questions accurately, clearly, and provide useful guidance.
@@ -34,16 +37,20 @@ if submit_button and user_input.strip() != "":
     """
 
     try:
-        response = openai.ChatCompletion.create(
+        # ---------------- NEW OPENAI API ------------------
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "system", "content": system_message}] + st.session_state.messages,
             max_tokens=350,
             temperature=0.7
         )
-        bot_response = response['choices'][0]['message']['content']
+
+        bot_response = response.choices[0].message.content
+
     except Exception as e:
         bot_response = f"Error: {str(e)}"
 
+    # Save bot response
     st.session_state.messages.append({"role": "bot", "content": bot_response})
 
 # ---------------- DISPLAY CHAT WITH BUBBLES ------------------
